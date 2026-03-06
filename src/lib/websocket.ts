@@ -20,7 +20,8 @@ export interface KeystrokeEvent {
   flight_time_ms?: number
 }
 
-export interface MouseEvent {
+// Renamed from MouseEvent → MouseMetricEvent to avoid conflict with browser's built-in MouseEvent
+export interface MouseMetricEvent {
   timestamp: number
   event_type: 'move' | 'click' | 'scroll'
   x: number
@@ -40,7 +41,7 @@ export interface MetricsBatch {
   type: 'metrics_batch'
   session_id?: string
   keystrokes?: KeystrokeEvent[]
-  mouse_events?: MouseEvent[]
+  mouse_events?: MouseMetricEvent[]
   rppg?: RPPGMetric
   text_snippet?: string
 }
@@ -218,7 +219,7 @@ export function createKeystrokeCollector() {
 
 /** Collect mouse move/click events into a throttled buffer. */
 export function createMouseCollector(throttleMs = 50) {
-  const buffer: MouseEvent[] = []
+  const buffer: MouseMetricEvent[] = []
   let lastMove = 0
   let lastX = 0, lastY = 0, lastT = 0
 
@@ -259,7 +260,7 @@ export function createMouseCollector(throttleMs = 50) {
   document.addEventListener('click', onClick)
 
   return {
-    flush: (): MouseEvent[] => buffer.splice(0),
+    flush: (): MouseMetricEvent[] => buffer.splice(0),
     destroy: () => {
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('click', onClick)
