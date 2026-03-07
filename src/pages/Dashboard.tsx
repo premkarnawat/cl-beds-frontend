@@ -1,8 +1,6 @@
 /**
- * CL-BEDS Dashboard Page
- * Real-time burnout monitoring with live WebSocket + rPPG camera data.
+ * CL-BEDS Dashboard — Premium Glassmorphism UI
  */
-
 import { useCallback, useEffect, useRef, useState } from 'react'
 import BurnoutGauge from '@/components/BurnoutGauge'
 import RiskTrendChart from '@/components/RiskTrendChart'
@@ -11,18 +9,13 @@ import RPPGCamera from '@/components/RPPGCamera'
 import { dashboardApi, type RiskTrendPoint, type SHAPReport } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import type { RPPGMetric } from '@/lib/websocket'
-import {
-  createKeystrokeCollector,
-  createMouseCollector,
-  type LiveRiskResponse,
-  useMetricsWS,
-} from '@/lib/websocket'
+import { createKeystrokeCollector, createMouseCollector, type LiveRiskResponse, useMetricsWS } from '@/lib/websocket'
+import { GlassCard, PageWrap, PageHeader, SectionTitle, Badge } from '@/components/GlassUI'
 
 const WS_SEND_INTERVAL_MS = 5_000
 
 export default function DashboardPage() {
   const { token } = useAuth()
-
   const [trendData, setTrendData]     = useState<RiskTrendPoint[]>([])
   const [shapReport, setShapReport]   = useState<SHAPReport | null>(null)
   const [latestRisk, setLatestRisk]   = useState<LiveRiskResponse | null>(null)
@@ -35,221 +28,143 @@ export default function DashboardPage() {
   const ksCollectorRef    = useRef<ReturnType<typeof createKeystrokeCollector>>()
   const mouseCollectorRef = useRef<ReturnType<typeof createMouseCollector>>()
   const sendIntervalRef   = useRef<ReturnType<typeof setInterval>>()
-  // Mutable ref so sendInterval always gets latest rPPG value
-  const latestRPPGRef = useRef<RPPGMetric | null>(null)
+  const latestRPPGRef     = useRef<RPPGMetric | null>(null)
 
-  // ── Fetch initial data ──────────────────────────────────────────────────
   useEffect(() => {
     if (!token) return
     dashboardApi.getRiskTrend(token, 50).then(setTrendData).catch(() => {})
     dashboardApi.getLatestSHAP(token).then(setShapReport).catch(() => {})
   }, [token])
 
-  // ── rPPG callback ───────────────────────────────────────────────────────
   const handleRPPGMetric = useCallback((metric: RPPGMetric) => {
     latestRPPGRef.current = metric
     setLatestRPPG(metric)
   }, [])
 
-  // ── WS risk update ──────────────────────────────────────────────────────
   const handleRiskUpdate = useCallback((data: LiveRiskResponse) => {
     setLatestRisk(data)
     setShapReport(data.shap)
-    setTrendData((prev) => [
-      ...prev.slice(-99),
-      {
-        timestamp:       new Date(data.timestamp * 1000).toISOString(),
-        risk_score:      data.fusion.risk_score,
-        risk_level:      data.fusion.risk_level,
-        cmes_index:      data.cmes?.cmes_index ?? 0,
-        hrv_stress:      latestRPPGRef.current
-          ? Math.min(Math.max((latestRPPGRef.current.bpm - 60) / 60, 0), 1)
-          : 0.5,
-        backspace_ratio: data.keystroke_features?.backspace_ratio ?? 0,
-      },
-    ])
+    setTrendData(prev => [...prev.slice(-99), {
+      timestamp:       new Date(data.timestamp * 1000).toISOString(),
+      risk_score:      data.fusion.risk_score,
+      risk_level:      data.fusion.risk_level,
+      cmes_index:      data.cmes?.cmes_index ?? 0,
+      hrv_stress:      latestRPPGRef.current ? Math.min(Math.max((latestRPPGRef.current.bpm - 60) / 60, 0), 1) : 0.5,
+      backspace_ratio: data.keystroke_features?.backspace_ratio ?? 0,
+    }])
   }, [])
 
   const { status, sendBatch, connect, disconnect } = useMetricsWS({
-    token: token ?? null,
-    sessionId,
-    onRiskUpdate: handleRiskUpdate,
-    autoConnect: false,
+    token: token ?? null, sessionId, onRiskUpdate: handleRiskUpdate, autoConnect: false,
   })
-
   useEffect(() => { setWsStatus(status) }, [status])
 
-  // ── Start monitoring ────────────────────────────────────────────────────
   const startMonitoring = async () => {
     if (!token) return
     const session = await dashboardApi.createSession(token, 'Live Session')
     setSessionId(session.id)
-
     ksCollectorRef.current    = createKeystrokeCollector()
     mouseCollectorRef.current = createMouseCollector()
-
-    connect()
-    setIsMonitoring(true)
-
+    connect(); setIsMonitoring(true)
     sendIntervalRef.current = setInterval(() => {
-      const ks    = ksCollectorRef.current?.flush() ?? []
-      const mouse = mouseCollectorRef.current?.flush() ?? []
-      const rppg  = latestRPPGRef.current ?? undefined   // ← real heart rate
-
-      sendBatch({
-        type:         'metrics_batch',
-        session_id:   session.id,
-        keystrokes:   ks,
-        mouse_events: mouse,
-        rppg,
-      })
+      sendBatch({ type:'metrics_batch', session_id:session.id, keystrokes:ksCollectorRef.current?.flush()??[], mouse_events:mouseCollectorRef.current?.flush()??[], rppg:latestRPPGRef.current??undefined })
     }, WS_SEND_INTERVAL_MS)
   }
 
-  // ── Stop monitoring ─────────────────────────────────────────────────────
   const stopMonitoring = () => {
     clearInterval(sendIntervalRef.current)
-    ksCollectorRef.current?.destroy()
-    mouseCollectorRef.current?.destroy()
-    disconnect()
-    setIsMonitoring(false)
-    setSessionId(undefined)
+    ksCollectorRef.current?.destroy(); mouseCollectorRef.current?.destroy()
+    disconnect(); setIsMonitoring(false); setSessionId(undefined)
   }
 
   const riskScore  = latestRisk?.fusion.risk_score  ?? 0
-  const riskLevel  = (latestRisk?.fusion.risk_level ?? 'Low') as 'Low' | 'Medium' | 'High'
+  const riskLevel  = (latestRisk?.fusion.risk_level ?? 'Low') as 'Low'|'Medium'|'High'
   const confidence = latestRisk?.fusion.confidence  ?? 0
 
-  const statusColors: Record<string, string> = {
-    connected:    'bg-green-500',
-    connecting:   'bg-yellow-500',
-    disconnected: 'bg-slate-500',
-    error:        'bg-red-500',
-  }
+  const wsColor = { connected:'#22c55e', connecting:'#eab308', disconnected:'rgba(255,255,255,0.2)', error:'#ef4444' }
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
-
-      {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-white">Live Dashboard</h1>
-          <p className="text-sm text-slate-400 mt-0.5">
-            Real-time cognitive load & burnout monitoring
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <span className={`w-2 h-2 rounded-full ${statusColors[wsStatus] ?? 'bg-slate-500'}`} />
-            <span className="text-xs text-slate-400 capitalize">{wsStatus}</span>
+    <PageWrap>
+      <PageHeader
+        title="Live Dashboard"
+        subtitle="Real-time cognitive load & burnout monitoring"
+        action={
+          <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <div style={{ width:8, height:8, borderRadius:'50%', background:wsColor[wsStatus as keyof typeof wsColor]??'rgba(255,255,255,0.2)', boxShadow:`0 0 8px ${wsColor[wsStatus as keyof typeof wsColor]??'transparent'}` }} />
+              <span style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.4)', textTransform:'capitalize' }}>{wsStatus}</span>
+            </div>
+            <button onClick={isMonitoring ? stopMonitoring : startMonitoring} style={{
+              padding:'0.6rem 1.25rem', border:'none', borderRadius:10, cursor:'pointer', fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'0.85rem',
+              background: isMonitoring ? 'rgba(239,68,68,0.15)' : 'linear-gradient(135deg,#6366f1,#a855f7)',
+              color: isMonitoring ? '#fca5a5' : '#fff', border: isMonitoring ? '1px solid rgba(239,68,68,0.3)' : 'none',
+              boxShadow: isMonitoring ? 'none' : '0 4px 20px rgba(99,102,241,0.35)', transition:'all 0.2s'
+            }}>
+              {isMonitoring ? '⏹ Stop' : '▶ Start Monitoring'}
+            </button>
           </div>
-          <button
-            onClick={isMonitoring ? stopMonitoring : startMonitoring}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              isMonitoring
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : 'bg-brand-600 hover:bg-brand-700 text-white'
-            }`}
-          >
-            {isMonitoring ? '⏹ Stop Monitoring' : '▶ Start Monitoring'}
-          </button>
-        </div>
-      </div>
-
-      {/* Top grid: Gauge + Signals + SHAP */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-
-        {/* Burnout Gauge */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6
-                        flex items-center justify-center">
-          <BurnoutGauge score={riskScore} riskLevel={riskLevel} confidence={confidence} />
-        </div>
-
-        {/* Live signal readings */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
-            Live Signals
-          </h2>
-
-          {latestRisk ? (
-            <div className="space-y-2.5">
-              <MetricRow label="CMES Index"      value={latestRisk.cmes?.cmes_index} />
-              <MetricRow label="Emotion"         valueStr={latestRisk.emotion ?? 'Neutral'} />
-              <MetricRow label="Backspace Ratio" value={latestRisk.keystroke_features?.backspace_ratio} unit="%" scale={100} />
-              <MetricRow label="Mouse Stiffness" value={latestRisk.mouse_features?.stiffness_score} />
-              <MetricRow label="Typing Speed"    value={latestRisk.keystroke_features?.typing_speed_wpm} unit=" WPM" />
-            </div>
-          ) : (
-            <p className="text-sm text-slate-600 text-center py-6">
-              Start monitoring to see live data
-            </p>
-          )}
-
-          {/* rPPG readings */}
-          {latestRPPG && (
-            <div className="pt-3 border-t border-slate-800 space-y-2.5">
-              <MetricRow label="❤️ Heart Rate"  valueStr={`${latestRPPG.bpm} BPM`} />
-              <MetricRow label="HRV SDNN"       valueStr={`${(latestRPPG.hrv_sdnn ?? 0).toFixed(1)} ms`} />
-              <MetricRow label="HRV RMSSD"      valueStr={`${(latestRPPG.hrv_rmssd ?? 0).toFixed(1)} ms`} />
-              <MetricRow
-                label="Signal Quality"
-                valueStr={`${Math.round((latestRPPG.signal_quality ?? 0) * 100)}%`}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* SHAP feature cards */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5
-                        md:col-span-2 xl:col-span-1">
-          <ShapCards report={shapReport} />
-        </div>
-      </div>
-
-      {/* rPPG Camera Card */}
-      <RPPGCamera
-        enabled={rppgEnabled}
-        onToggle={setRppgEnabled}
-        onMetric={handleRPPGMetric}
+        }
       />
 
-      {/* Risk trend chart */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">
-          Risk Trend
-        </h2>
-        <RiskTrendChart data={trendData} />
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))', gap:16, marginBottom:16 }}>
+        {/* Gauge */}
+        <GlassCard style={{ padding:24, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <BurnoutGauge score={riskScore} riskLevel={riskLevel} confidence={confidence} />
+        </GlassCard>
+
+        {/* Live signals */}
+        <GlassCard style={{ padding:24 }}>
+          <SectionTitle>Live Signals</SectionTitle>
+          {latestRisk ? (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              <SignalRow label="CMES Index"      value={latestRisk.cmes?.cmes_index} />
+              <SignalRow label="Emotion"         valueStr={latestRisk.emotion ?? 'Neutral'} />
+              <SignalRow label="Backspace Ratio" value={latestRisk.keystroke_features?.backspace_ratio} unit="%" scale={100} />
+              <SignalRow label="Mouse Stiffness" value={latestRisk.mouse_features?.stiffness_score} />
+              <SignalRow label="Typing Speed"    value={latestRisk.keystroke_features?.typing_speed_wpm} unit=" WPM" />
+              {latestRPPG && <>
+                <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)', margin:'4px 0' }} />
+                <SignalRow label="❤️ Heart Rate"  valueStr={`${latestRPPG.bpm} BPM`} accent />
+                <SignalRow label="HRV SDNN"       valueStr={`${(latestRPPG.hrv_sdnn??0).toFixed(1)} ms`} />
+                <SignalRow label="HRV RMSSD"      valueStr={`${(latestRPPG.hrv_rmssd??0).toFixed(1)} ms`} />
+                <SignalRow label="Signal Quality" valueStr={`${Math.round((latestRPPG.signal_quality??0)*100)}%`} />
+              </>}
+            </div>
+          ) : (
+            <div style={{ textAlign:'center', padding:'2rem 0', color:'rgba(255,255,255,0.2)', fontSize:'0.875rem' }}>
+              Start monitoring to see live data
+            </div>
+          )}
+        </GlassCard>
+
+        {/* SHAP */}
+        <GlassCard style={{ padding:24 }}>
+          <ShapCards report={shapReport} />
+        </GlassCard>
       </div>
 
-    </div>
+      {/* rPPG Camera */}
+      <div style={{ marginBottom:16 }}>
+        <RPPGCamera enabled={rppgEnabled} onToggle={setRppgEnabled} onMetric={handleRPPGMetric} />
+      </div>
+
+      {/* Trend Chart */}
+      <GlassCard style={{ padding:24 }}>
+        <SectionTitle>Risk Trend</SectionTitle>
+        <RiskTrendChart data={trendData} />
+      </GlassCard>
+    </PageWrap>
   )
 }
 
-// ─── Helper sub-component ─────────────────────────────────────────────────
-function MetricRow({
-  label,
-  value,
-  valueStr,
-  unit = '',
-  scale = 1,
-}: {
-  label:     string
-  value?:    number | null
-  valueStr?: string
-  unit?:     string
-  scale?:    number
+function SignalRow({ label, value, valueStr, unit='', scale=1, accent }: {
+  label:string; value?:number|null; valueStr?:string; unit?:string; scale?:number; accent?:boolean
 }) {
-  const display =
-    valueStr !== undefined
-      ? valueStr
-      : value !== undefined && value !== null
-      ? `${(value * scale).toFixed(2)}${unit}`
-      : '—'
-
+  const display = valueStr !== undefined ? valueStr : value!=null ? `${(value*scale).toFixed(2)}${unit}` : '—'
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-slate-400">{label}</span>
-      <span className="text-sm font-mono font-medium text-slate-200">{display}</span>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+      <span style={{ fontSize:'0.8rem', color:'rgba(255,255,255,0.4)' }}>{label}</span>
+      <span style={{ fontSize:'0.8rem', fontFamily:'monospace', fontWeight:600, color: accent ? '#a78bfa' : 'rgba(255,255,255,0.8)' }}>{display}</span>
     </div>
   )
 }
