@@ -1,127 +1,115 @@
 /**
- * Settings Page – monitoring preferences + theme (links to Profile for account)
+ * Settings Page — Premium Glassmorphism UI
  */
-
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useTheme, ACCENT_COLORS, type AccentColor } from '@/lib/theme'
 import { useAuth } from '@/lib/auth'
+import { GlassCard, PageWrap, PageHeader, SectionTitle } from '@/components/GlassUI'
+
+const ACCENT_COLORS = [
+  { key:'indigo',  hex:'#6366f1', name:'Indigo'  },
+  { key:'violet',  hex:'#7c3aed', name:'Violet'  },
+  { key:'blue',    hex:'#2563eb', name:'Blue'    },
+  { key:'emerald', hex:'#059669', name:'Emerald' },
+  { key:'rose',    hex:'#e11d48', name:'Rose'    },
+]
 
 export default function SettingsPage() {
   const { user } = useAuth()
-  const { theme, setTheme, accent, setAccent } = useTheme()
+  const [accent, setAccent] = useState('indigo')
 
   return (
-    <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900 dark:text-white">Settings</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          App preferences and monitoring configuration
-        </p>
-      </div>
+    <PageWrap>
+      <PageHeader title="Settings" subtitle="App preferences and monitoring configuration" />
 
-      {/* Quick profile link */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+      {/* Profile quick link */}
+      <GlassCard style={{ padding:16, marginBottom:16, display:'flex', alignItems:'center', gap:16 }}>
+        <div style={{ width:48, height:48, borderRadius:'50%', background:'linear-gradient(135deg,#6366f1,#a855f7)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', color:'#fff', flexShrink:0 }}>
           {user?.full_name?.[0]?.toUpperCase() ?? '?'}
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-slate-900 dark:text-white truncate">{user?.full_name}</p>
-          <p className="text-sm text-slate-500 truncate">{user?.email}</p>
+        <div style={{ flex:1, minWidth:0 }}>
+          <p style={{ fontWeight:600, color:'#fff', fontSize:'0.95rem', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user?.full_name}</p>
+          <p style={{ fontSize:'0.8rem', color:'rgba(255,255,255,0.35)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user?.email}</p>
         </div>
-        <Link to="/profile"
-          className="text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline flex-shrink-0">
+        <Link to="/profile" style={{ fontSize:'0.82rem', color:'#a78bfa', textDecoration:'none', fontWeight:500, flexShrink:0, whiteSpace:'nowrap' }}>
           Edit Profile →
         </Link>
-      </div>
+      </GlassCard>
 
-      {/* Theme */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-5">
-        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Appearance</h2>
-
-        <div>
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Mode</p>
-          <div className="flex gap-3">
-            {(['dark', 'light'] as const).map(t => (
-              <button key={t} onClick={() => setTheme(t)}
-                className={`flex-1 py-3 rounded-xl border-2 text-sm font-medium transition-all flex flex-col items-center gap-1 ${
-                  theme === t
-                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
-                }`}>
-                <span className="text-xl">{t === 'dark' ? '🌙' : '☀️'}</span>
-                <span className="capitalize">{t} Mode</span>
-              </button>
-            ))}
-          </div>
+      {/* Appearance */}
+      <GlassCard style={{ padding:24, marginBottom:16 }}>
+        <SectionTitle>Appearance</SectionTitle>
+        <p style={{ fontSize:'0.82rem', color:'rgba(255,255,255,0.4)', marginBottom:12 }}>Accent Colour</p>
+        <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+          {ACCENT_COLORS.map(c=>(
+            <button key={c.key} onClick={()=>setAccent(c.key)} title={c.name} style={{
+              width:36, height:36, borderRadius:'50%', background:c.hex, border: accent===c.key ? `3px solid #fff` : '3px solid transparent',
+              cursor:'pointer', transition:'all 0.2s', transform: accent===c.key ? 'scale(1.15)' : 'scale(1)',
+              boxShadow: accent===c.key ? `0 0 16px ${c.hex}` : 'none'
+            }} />
+          ))}
         </div>
+        <p style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.25)', marginTop:10 }}>
+          Current: <span style={{ color:'rgba(255,255,255,0.5)' }}>{ACCENT_COLORS.find(c=>c.key===accent)?.name}</span>
+        </p>
+      </GlassCard>
 
-        <div>
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Accent Colour</p>
-          <div className="flex gap-3 flex-wrap">
-            {(Object.entries(ACCENT_COLORS) as [AccentColor, typeof ACCENT_COLORS[AccentColor]][]).map(([key, val]) => (
-              <button key={key} onClick={() => setAccent(key)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
-                  accent === key
-                    ? 'border-current'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                }`}
-                style={accent === key ? { borderColor: val.hex, color: val.hex } : {}}>
-                <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: val.hex }} />
-                {val.name}
-              </button>
-            ))}
-          </div>
+      {/* Monitoring */}
+      <GlassCard style={{ padding:24, marginBottom:16 }}>
+        <SectionTitle>Monitoring Sensors</SectionTitle>
+        <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+          <ToggleRow label="Keystroke Tracking"   desc="Typing dynamics for cognitive load analysis" defaultOn />
+          <ToggleRow label="Mouse Tracking"        desc="Mouse movement pattern analysis"             defaultOn />
+          <ToggleRow label="NLP Emotion Detection" desc="Analyse text for emotional signals"          defaultOn />
+          <ToggleRow label="rPPG Heart Rate"       desc="Webcam / front camera heart rate sensing"   defaultOn={false} />
+          <ToggleRow label="Auto-send to AI Coach" desc="Automatically share risk scores with coach" defaultOn />
         </div>
-      </div>
-
-      {/* Monitoring toggles */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Monitoring Sensors</h2>
-        <SettingRow label="Keystroke Tracking"   desc="Typing dynamics for cognitive load analysis" defaultOn />
-        <SettingRow label="Mouse Tracking"        desc="Mouse movement pattern analysis"             defaultOn />
-        <SettingRow label="NLP Emotion Detection" desc="Analyse text for emotional signals"          defaultOn />
-        <SettingRow label="rPPG Heart Rate"       desc="Webcam / front camera heart rate sensing"   defaultOn={false} />
-        <SettingRow label="Auto-send to AI Coach" desc="Automatically share risk scores with coach" defaultOn />
-      </div>
+      </GlassCard>
 
       {/* Notifications */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Notifications</h2>
-        <SettingRow label="High-Risk Alerts"    desc="Notify when burnout risk reaches High"   defaultOn />
-        <SettingRow label="Daily Summary"       desc="End-of-day wellbeing report"              defaultOn={false} />
-        <SettingRow label="Coach Suggestions"   desc="Proactive tips from the AI coach"        defaultOn />
-      </div>
+      <GlassCard style={{ padding:24, marginBottom:16 }}>
+        <SectionTitle>Notifications</SectionTitle>
+        <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+          <ToggleRow label="High-Risk Alerts"  desc="Notify when burnout risk reaches High"  defaultOn />
+          <ToggleRow label="Daily Summary"     desc="End-of-day wellbeing report"             defaultOn={false} />
+          <ToggleRow label="Coach Suggestions" desc="Proactive tips from the AI coach"       defaultOn />
+        </div>
+      </GlassCard>
 
       {/* About */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
-        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">About</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-          CL-BEDS v1.0 — Research prototype for cognitive load and burnout monitoring.
-          Not a medical device or diagnostic tool.
+      <GlassCard style={{ padding:24 }}>
+        <SectionTitle>About</SectionTitle>
+        <p style={{ fontSize:'0.875rem', color:'rgba(255,255,255,0.45)', lineHeight:1.6 }}>
+          CL-BEDS v1.0 — Research prototype for cognitive load and burnout monitoring. Not a medical device or diagnostic tool.
         </p>
-        <p className="text-xs text-slate-400 dark:text-slate-600 mt-2">
+        <p style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.2)', marginTop:8 }}>
           Stack: FastAPI · PyTorch · RoBERTa · React · Supabase
         </p>
-      </div>
-    </div>
+      </GlassCard>
+    </PageWrap>
   )
 }
 
-function SettingRow({ label, desc, defaultOn }: { label: string; desc: string; defaultOn: boolean }) {
+function ToggleRow({ label, desc, defaultOn }: { label:string; desc:string; defaultOn:boolean }) {
   const [on, setOn] = useState(defaultOn)
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 0', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
       <div>
-        <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{label}</p>
-        <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
+        <p style={{ fontSize:'0.875rem', fontWeight:500, color:'rgba(255,255,255,0.8)' }}>{label}</p>
+        <p style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.3)', marginTop:2 }}>{desc}</p>
       </div>
-      <label className="relative flex-shrink-0 inline-flex h-5 w-10 cursor-pointer items-center mt-0.5">
-        <input type="checkbox" checked={on} onChange={e => setOn(e.target.checked)} className="sr-only peer" />
-        <div className="h-5 w-10 rounded-full bg-slate-300 dark:bg-slate-700 peer-checked:bg-indigo-600
-                        after:absolute after:top-0.5 after:left-0.5 after:h-4 after:w-4
-                        after:rounded-full after:bg-white after:transition-all
-                        peer-checked:after:translate-x-5 transition-colors" />
+      <label style={{ position:'relative', display:'inline-flex', height:24, width:44, cursor:'pointer', alignItems:'center', flexShrink:0, marginLeft:16 }}>
+        <input type="checkbox" checked={on} onChange={e=>setOn(e.target.checked)} style={{ opacity:0, width:0, height:0, position:'absolute' }} />
+        <div onClick={()=>setOn(!on)} style={{
+          height:24, width:44, borderRadius:999, transition:'background 0.25s',
+          background: on ? 'linear-gradient(135deg,#6366f1,#a855f7)' : 'rgba(255,255,255,0.1)',
+          position:'relative', boxShadow: on ? '0 0 12px rgba(99,102,241,0.4)' : 'none'
+        }}>
+          <div style={{
+            position:'absolute', top:3, left: on ? 22 : 3, width:18, height:18,
+            borderRadius:'50%', background:'#fff', transition:'left 0.25s', boxShadow:'0 2px 4px rgba(0,0,0,0.3)'
+          }} />
+        </div>
       </label>
     </div>
   )
