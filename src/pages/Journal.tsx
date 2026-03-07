@@ -1,182 +1,107 @@
-/**
- * Journal Page – mood-aware daily journal with NLP emotion detection
- */
-
+// Journal.tsx — Premium Glassmorphism
 import { useEffect, useState } from 'react'
 import { journalApi, type JournalEntry } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { GlassCard, PageWrap, PageHeader, GlassInput, PrimaryBtn, Badge, SectionTitle } from '@/components/GlassUI'
 
-const MOOD_LABELS = ['', '😩', '😞', '😕', '😐', '🙂', '😊', '😄', '😁', '🤩', '🌟']
-
-const EMOTION_BADGE: Record<string, string> = {
-  Stress:             'bg-red-900/40 text-red-400',
-  Fatigue:            'bg-orange-900/40 text-orange-400',
-  Cognitive_Overload: 'bg-purple-900/40 text-purple-400',
-  Neutral:            'bg-slate-700 text-slate-400',
+const MOOD_LABELS = ['','??','??','??','??','??','??','??','??','??','??']
+const EMOTION_COLOR: Record<string,string> = {
+  Stress:'red', Fatigue:'yellow', Cognitive_Overload:'purple', Neutral:'dim'
 }
 
 export default function JournalPage() {
   const { token } = useAuth()
   const [entries, setEntries]     = useState<JournalEntry[]>([])
   const [content, setContent]     = useState('')
-  const [moodScore, setMoodScore] = useState<number>(5)
+  const [moodScore, setMoodScore] = useState(5)
   const [tags, setTags]           = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError]         = useState<string | null>(null)
+  const [error, setError]         = useState<string|null>(null)
 
-  useEffect(() => {
-    if (!token) return
-    journalApi.list(token).then(setEntries).catch(() => {})
-  }, [token])
+  useEffect(() => { if(token) journalApi.list(token).then(setEntries).catch(()=>{}) }, [token])
 
   const handleSubmit = async () => {
     if (!content.trim() || !token) return
-    setIsSubmitting(true)
-    setError(null)
+    setIsSubmitting(true); setError(null)
     try {
-      const tagList = tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean)
-
+      const tagList = tags.split(',').map(t=>t.trim()).filter(Boolean)
       const entry = await journalApi.create(token, content.trim(), moodScore, tagList.length ? tagList : undefined)
-      setEntries((prev) => [entry, ...prev])
-      setContent('')
-      setTags('')
-      setMoodScore(5)
-    } catch (e: unknown) {
-      setError((e as Error).message)
-    } finally {
-      setIsSubmitting(false)
-    }
+      setEntries(prev=>[entry,...prev]); setContent(''); setTags(''); setMoodScore(5)
+    } catch(e:unknown) { setError((e as Error).message) }
+    finally { setIsSubmitting(false) }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id:string) => {
     if (!token) return
     await journalApi.delete(token, id)
-    setEntries((prev) => prev.filter((e) => e.id !== id))
+    setEntries(prev=>prev.filter(e=>e.id!==id))
   }
 
   return (
-    <div className="p-4 lg:p-6 max-w-3xl mx-auto space-y-6 animate-fade-in">
+    <PageWrap>
+      <PageHeader title="Journal" subtitle="Write freely – AI emotion detection runs automatically." />
 
-      <div>
-        <h1 className="text-xl font-bold text-white">Journal</h1>
-        <p className="text-sm text-slate-400 mt-1">
-          Write freely – AI emotion detection runs automatically.
-        </p>
-      </div>
-
-      {/* Entry form */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
-          New Entry
-        </h2>
-
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
+      <GlassCard style={{ padding:24, marginBottom:16 }}>
+        <SectionTitle>New Entry</SectionTitle>
+        <textarea value={content} onChange={e=>setContent(e.target.value)}
           placeholder="How was your day? What's on your mind?"
-          rows={5}
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3
-                     text-slate-100 placeholder-slate-500 text-sm resize-none
-                     focus:outline-none focus:border-brand-500 transition-colors"
+          rows={5} style={{
+            width:'100%', padding:'0.875rem 1rem',
+            background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)',
+            borderRadius:12, color:'#fff', fontFamily:"'DM Sans',sans-serif", fontSize:'0.9rem',
+            resize:'vertical', outline:'none', transition:'all 0.2s', boxSizing:'border-box', marginBottom:12
+          }}
+          onFocus={e=>{e.currentTarget.style.borderColor='rgba(99,102,241,0.6)';e.currentTarget.style.boxShadow='0 0 0 3px rgba(99,102,241,0.15)'}}
+          onBlur={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,0.1)';e.currentTarget.style.boxShadow='none'}}
         />
 
-        {/* Mood slider */}
-        <div>
-          <label className="text-xs text-slate-400 mb-2 block">
+        <div style={{ marginBottom:16 }}>
+          <label style={{ display:'block', fontSize:'0.75rem', color:'rgba(255,255,255,0.4)', marginBottom:8 }}>
             Mood: {MOOD_LABELS[moodScore]} {moodScore}/10
           </label>
-          <input
-            type="range"
-            min={1}
-            max={10}
-            value={moodScore}
-            onChange={(e) => setMoodScore(Number(e.target.value))}
-            className="w-full accent-brand-500"
-          />
+          <input type="range" min={1} max={10} value={moodScore} onChange={e=>setMoodScore(Number(e.target.value))}
+            style={{ width:'100%', accentColor:'#6366f1' }} />
         </div>
 
-        {/* Tags */}
-        <input
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          placeholder="Tags (comma-separated): work, stress, focus…"
-          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2
-                     text-slate-100 placeholder-slate-500 text-sm
-                     focus:outline-none focus:border-brand-500 transition-colors"
-        />
+        <GlassInput value={tags} onChange={setTags} placeholder="Tags: work, stress, focus…" icon="??️" />
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <div style={{ color:'#fca5a5', fontSize:'0.82rem', marginBottom:12 }}>⚠️ {error}</div>}
 
-        <button
-          onClick={handleSubmit}
-          disabled={isSubmitting || !content.trim()}
-          className="bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white
-                     px-5 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
+        <PrimaryBtn onClick={handleSubmit} disabled={isSubmitting || !content.trim()}>
           {isSubmitting ? 'Saving…' : 'Save Entry'}
-        </button>
-      </div>
+        </PrimaryBtn>
+      </GlassCard>
 
-      {/* Entries list */}
-      <div className="space-y-4">
-        {entries.length === 0 && (
-          <p className="text-slate-500 text-sm text-center py-8">
+      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+        {entries.length===0 && (
+          <div style={{ textAlign:'center', padding:'3rem 0', color:'rgba(255,255,255,0.25)', fontSize:'0.875rem' }}>
             No journal entries yet. Write your first one above!
-          </p>
+          </div>
         )}
-
-        {entries.map((entry) => (
-          <div
-            key={entry.id}
-            className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3
-                       animate-fade-in"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                {entry.mood_score && (
-                  <span className="text-lg">{MOOD_LABELS[entry.mood_score]}</span>
-                )}
-                {entry.detected_emotion && (
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      EMOTION_BADGE[entry.detected_emotion] ?? 'bg-slate-700 text-slate-400'
-                    }`}
-                  >
-                    {entry.detected_emotion.replace('_', ' ')}
-                  </span>
-                )}
-                {entry.tags?.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full"
-                  >
-                    #{tag}
-                  </span>
+        {entries.map(entry=>(
+          <GlassCard key={entry.id} style={{ padding:20 }}>
+            <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:12, flexWrap:'wrap', gap:8 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                {entry.mood_score && <span style={{ fontSize:'1.2rem' }}>{MOOD_LABELS[entry.mood_score]}</span>}
+                {entry.detected_emotion && <Badge label={entry.detected_emotion.replace('_',' ')} color={(EMOTION_COLOR[entry.detected_emotion]??'dim') as any} />}
+                {entry.tags?.map(tag=>(
+                  <Badge key={tag} label={`#${tag}`} color="dim" />
                 ))}
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-xs text-slate-600">
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.25)' }}>
                   {new Date(entry.created_at).toLocaleDateString()}
                 </span>
-                <button
-                  onClick={() => handleDelete(entry.id)}
-                  className="text-slate-600 hover:text-red-400 transition-colors text-sm"
-                  aria-label="Delete entry"
-                >
-                  🗑
+                <button onClick={()=>handleDelete(entry.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.2)', fontSize:'0.9rem', transition:'color 0.2s', padding:4 }}
+                  onMouseEnter={e=>e.currentTarget.style.color='#fca5a5'} onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,0.2)'}>
+                  ??
                 </button>
               </div>
             </div>
-
-            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
-              {entry.content}
-            </p>
-          </div>
+            <p style={{ fontSize:'0.875rem', color:'rgba(255,255,255,0.7)', lineHeight:1.6, whiteSpace:'pre-wrap' }}>{entry.content}</p>
+          </GlassCard>
         ))}
       </div>
-    </div>
+    </PageWrap>
   )
 }
